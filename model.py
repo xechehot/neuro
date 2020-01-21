@@ -8,6 +8,7 @@ import pickle
 import re
 import argparse
 import os
+import time
 
 # for reading and displaying images
 from skimage.io import imread
@@ -33,8 +34,10 @@ from torchvision import transforms, utils
 from torchvision.transforms import Compose, RandomCrop, RandomResizedCrop, ToPILImage, ToTensor, Lambda,\
     RandomHorizontalFlip, RandomRotation, RandomAffine, RandomPerspective, Grayscale, Normalize, Resize, CenterCrop, Pad, Normalize
 
+import glow
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device("cpu")
+# device = torch.device("cpu")
 size = (1920, 844)
 cropped_size = (256, 128)
 model_name = 'model'
@@ -90,7 +93,7 @@ def load_last(model_name, model, root='checkpoints'):
     epoch, m = max(((int(m['epoch']), m) for m in matches), key=lambda x: x[0])
 
     path = root / m.string
-    model.load_state_dict(torch.load(path))
+    model.load_state_dict(torch.load(path, map_location='cpu'))
     print('Loading: ' + str(path))
     return epoch, float(m['loss'])
 
@@ -111,46 +114,45 @@ def load_dataset(data_file):
 
 
 class Net(Module):
-    def __init__(self):
+    def __init__(self, init=64):
         super(Net, self).__init__()
 
         self.cnn_layers = Sequential(
             # MaxPool2d(kernel_size=2, stride=2),
             BatchNorm2d(1),
-            Conv2d(1, 64, kernel_size=3, stride=1, padding=1),
+            Conv2d(1, init, kernel_size=3, stride=1, padding=1),
             ReLU(inplace=True),
             MaxPool2d(kernel_size=4, stride=4),
             # Dropout(0.1),
             # Defining a 2D convolution layer
-            Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
+            Conv2d(init, init * 2, kernel_size=3, stride=1, padding=1),
             ReLU(inplace=True),
             MaxPool2d(kernel_size=2, stride=2),
             Dropout(0.1),
             # Defining another 2D convolution layer
-            Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
+            Conv2d(init * 2, init * 4, kernel_size=3, stride=1, padding=1),
             ReLU(inplace=True),
             MaxPool2d(kernel_size=2, stride=2),
             # Dropout(0.1),
 
-            Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
+            Conv2d(init * 4, init * 4, kernel_size=3, stride=1, padding=1),
             ReLU(inplace=True),
             MaxPool2d(kernel_size=2, stride=2),
             Dropout(0.1),
         )
-
         self.linear_layers = Sequential(
-            Linear((cropped_size[0] // 32) * (cropped_size[1] // 32) * 256, 128),
+            Linear((cropped_size[0] // 32) * (cropped_size[1] // 32) * init * 4, init * 2),
+            ReLU(inplace=True),
             Dropout(0.5),
-            Linear(128, 1)
+            Linear(init * 2, 1),
+            Sigmoid(),
         )
 
     # Defining the forward pass
     def forward(self, x):
         x = self.cnn_layers(x)
         x = x.view(x.size(0), -1)
-        x = self.linear_layers(x)
-        x = Sigmoid()(x)
-        return x
+        return self.linear_layers(x)
 
 
 def load_pic(image_path):
@@ -183,8 +185,9 @@ class BalancedDataset(Dataset):
 
     def __getitem__(self, idx):
         lable, id_, crit = idx
-        pic_num = self.xy[crit][lable][id_][0]
-        mark = self.xy[crit][lable][id_][1].reshape(1)
+        pic_num, mark = self.xy[crit][lable][id_]
+        # mark = random.uniform(max(0.0, mark - 0.025), min(1.0, mark + 0.025))
+        mark = np.array(mark).astype('float32').reshape(1)
         sample = self.data[pic_num]
         m = 0
         sample_ = sample
@@ -213,15 +216,13 @@ class DrawingDataset(Dataset):
         id_, crit = idx
         sample = self.x[id_]
         mark = self.y[id_][crit].reshape(1)
-        m = 0
         sample_ = sample
         if self.transform:
-            while m == 0:
-                sample_ = self.transform(sample)
-                m = torch.max(sample_)
+            sample_ = self.transform(sample)
+
         # sample = torch.clamp(sample, 0.0, 1.0)
         # sample[sample > 0] = 1
-        sample_ /= torch.max(sample_)
+        sample_ = sample_ / torch.max(sample_)
         return sample_, mark
 
     def get_img_name(self, id_):
@@ -276,13 +277,10 @@ def get_lr(optimizer):
         return param_group['lr']
 
 
-def train(model, crit, model_name, epochs=10000, start_epoch=1):
+def train(model, crit, model_name, epochs=25000, start_epoch=1):
     train_x, train_y = load_dataset('train.pkl')
     test_x, test_y = load_dataset('test.pkl')
     model_name = model_name + str(crit)
-
-    optimizer = Adadelta(model.parameters(), lr=1.0)
-    criterion = MSELoss()
 
     batch_size = 10
     batches = 5
@@ -301,13 +299,17 @@ def train(model, crit, model_name, epochs=10000, start_epoch=1):
 
     trainloader = DataLoader(train_dataset, sampler=BalancedSampler(train_dataset, batch_size * batches, weights=(1, 1),
                                                                     crit=crit), batch_size=batch_size)
-    testloader = DataLoader(test_dataset, sampler=DrawingSampler(test_dataset, crit=crit), batch_size=len(test_x))
-
-    scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=100, T_mult=1)
+    testloader = DataLoader(test_dataset, sampler=DrawingSampler(test_dataset, crit=crit), batch_size=batch_size)
 
     best_loss = float('+Inf')
     if cont_f:
         start_epoch, best_loss = load_last(model_name, model)
+    model.to(device)
+
+    criterion = MSELoss()
+    optimizer = Adadelta(model.parameters(), lr=1.0)
+    scheduler = optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=100, T_mult=1)
+
     with tqdm(range(start_epoch, epochs), desc='Epochs: ', position=0, initial=start_epoch, total=epochs) as pbar:
         for epoch in pbar:
             model.train()
@@ -321,6 +323,7 @@ def train(model, crit, model_name, epochs=10000, start_epoch=1):
                 loss_train.backward()
                 optimizer.step()
                 running_loss += loss_train.item()
+                del output, loss_train
             running_loss /= len(trainloader)
             scheduler.step()
             # pbar.write(str(get_lr(optimizer)))
@@ -360,6 +363,7 @@ def test(model, model_name_, val, predict_folder):
     test_dataset = DrawingDataset(test_x, test_y)
     y_true = np.zeros((len(test_x), criterion_number))
     y_pred = np.zeros((len(test_x), criterion_number))
+    model.to(device)
     for i in range(1, criterion_number + 1):
         testloader = DataLoader(test_dataset, sampler=DrawingSampler(test_dataset, crit=i), batch_size=len(test_x))
         model_name = model_name_ + str(i)
@@ -401,7 +405,7 @@ if __name__ == '__main__':
         create_files(namespace.files, namespace.validate)
         exit()
 
-    model = Net().to(device)
+    model = Net()
 
     if namespace.train:
         train(model, namespace.number, namespace.model)
