@@ -186,7 +186,7 @@ class BalancedDataset(Dataset):
     def __getitem__(self, idx):
         lable, id_, crit = idx
         pic_num, mark = self.xy[crit][lable][id_]
-        # mark = random.uniform(max(0.0, mark - 0.025), min(1.0, mark + 0.025))
+        mark = random.uniform(max(0.0, mark - 0.025), min(1.0, mark + 0.025))
         mark = np.array(mark).astype('float32').reshape(1)
         sample = self.data[pic_num]
         m = 0
