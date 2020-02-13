@@ -10,3 +10,4 @@ RUN conda env create -f /code/conda_environment.yml && \
     conda clean --all --yes
 
 RUN echo "conda activate nero-ml" >> ~/.bashrc
+COPY . /app

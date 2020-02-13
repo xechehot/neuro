@@ -28,13 +28,12 @@ from torch import optim
 from torch.autograd import Variable
 from torch.nn import Linear, ReLU, CrossEntropyLoss, Sequential, Conv2d, MaxPool2d, Module, Softmax, \
     BatchNorm2d, Dropout, Sigmoid, MSELoss, L1Loss
-from torch.optim import Adam, SGD, Adadelta, AdamW
+from torch.optim import Adam, SGD, Adadelta
 from torch.utils.data import DataLoader, TensorDataset, Dataset, Sampler
-from torchvision import transforms, utils
 from torchvision.transforms import Compose, RandomCrop, RandomResizedCrop, ToPILImage, ToTensor, Lambda,\
     RandomHorizontalFlip, RandomRotation, RandomAffine, RandomPerspective, Grayscale, Normalize, Resize, CenterCrop, Pad, Normalize
 
-import glow
+# import glow
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = torch.device("cpu")

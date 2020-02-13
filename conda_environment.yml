@@ -12,3 +12,8 @@ dependencies:
   - matplotlib
   - numpy
   - scikit-image
+  - pandas
+  - xlrd
+  - scikit-learn
+  - cpuonly
+  - pillow=6.2.1
