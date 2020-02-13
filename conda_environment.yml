@@ -1,0 +1,14 @@
+name: nero-ml
+channels:
+  - conda-forge
+  - fastai
+  - pytorch
+dependencies:
+  - python=3.7.3
+  - ipython=7.5.0
+  - pytorch-cpu
+  - torchvision-cpu
+  - tqdm
+  - matplotlib
+  - numpy
+  - scikit-image
