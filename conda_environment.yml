@@ -6,8 +6,8 @@ channels:
 dependencies:
   - python=3.7.3
   - ipython=7.5.0
-  - pytorch-cpu
-  - torchvision-cpu
+  - pytorch-cpu=1.1.0=py3.7_cpu_0
+  - torchvision-cpu=0.3.0=py37_cuNone_1
   - tqdm
   - matplotlib
   - numpy
