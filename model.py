@@ -162,9 +162,14 @@ test_64 = 'iVBORw0KGgoAAAANSUhEUgAABecAAALRCAYAAADRHxj7AAAgAElEQVR4XuzdBbQtS3U27
 def readb64(base64_string):
     sbuf = BytesIO()
     sbuf.write(base64.b64decode(base64_string))
-    pimg = Image.open(sbuf)
-    return pimg
-    # return np.array(pimg)
+    sbuf.seek(0)
+    # img = Image.open(sbuf)
+    img = imread(sbuf)
+    img = img[:, :, 3]
+    img = img.astype('float32')
+    img /= 255.0
+    img = np.array(img)
+    return img
 
 
 def load_pic(image_path):
@@ -218,6 +223,7 @@ class DrawingDataset(Dataset):
         self.img_names = x
         resize_transform = Compose([ToPILImage(), Resize(cropped_size[::-1]), ToTensor()])
         self.x = [resize_transform(load_pic(xi)) for xi in x]
+        print(self.x[0].shape)
         self.y = y
         self.transform = transform
 
@@ -244,8 +250,9 @@ class DrawingDataset(Dataset):
 
 class OneImageDataset(Dataset):
     def __init__(self, image):
-        resize_transform = Compose([Resize(cropped_size[::-1]), ToTensor()])
+        resize_transform = Compose([ToPILImage(), Resize(cropped_size[::-1]), ToTensor()])
         self.images = [resize_transform(image)]
+        print(self.images[0].shape)
 
     def __len__(self):
         return len(self.images)
@@ -419,7 +426,7 @@ def test(model, model_name_, val, predict_folder):
             x = x.to(device)
             with torch.no_grad():
                 print(x.shape)
-                print(x)
+                # print(x)
                 output = model(x)
             output = output.cpu()
             y_true[:, i - 1] = y.numpy().flatten()
