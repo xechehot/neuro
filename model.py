@@ -389,20 +389,21 @@ def train(model, crit, model_name, epochs=25000, start_epoch=1):
 def predict_image(model, img):
     model.to(device)
     dataset = OneImageDataset(img)
-    testloader = DataLoader(dataset, sampler=DrawingSampler(dataset, crit=1), batch_size=1)
-    model_name = 'model' + '1'
-    load_last(model_name, model)
-    model.eval()
-    x, y = next(iter(testloader))
-    x = x.to(device)
-    with torch.no_grad():
-        print(x.shape)
-        print(x)
-        output = model(x)
-    output = output.cpu()
-    # y_true[:, i - 1] = y.numpy().flatten()
-    print(output)
-    return output.numpy().flatten()
+    model.to(device)
+    y_pred = np.zeros((1, criterion_number))
+    for i in range(1, criterion_number + 1):
+        testloader = DataLoader(dataset, sampler=DrawingSampler(dataset, crit=1), batch_size=1)
+        model_name = 'model' + str(i)
+        load_last(model_name, model)
+        model.eval()
+        x, _ = next(iter(testloader))
+        x = x.to(device)
+        with torch.no_grad():
+            output = model(x)
+        output = output.cpu()
+        y_pred[:, i - 1] = output.numpy().flatten()
+    print(y_pred)
+    return y_pred
 
 def test(model, model_name_, val, predict_folder):
     set_name = 'test.pkl'
