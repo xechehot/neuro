@@ -17,3 +17,5 @@ dependencies:
   - scikit-learn
   - cpuonly
   - pillow=6.2.1
+  - flask
+  - gunicorn
