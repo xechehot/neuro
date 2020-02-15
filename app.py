@@ -2,6 +2,7 @@ from os import environ
 
 from flask import Flask, jsonify, request, make_response, abort
 
+from meta import CURRENT_REVISION
 from model import predict_image, Net, read_img_from_base64
 
 app = Flask(__name__)
@@ -12,6 +13,13 @@ DEBUG = environ.get('DEBUG')
 @app.route('/')
 def index():
     return jsonify({'data': "Hello, World!"})
+
+
+@app.route('/meta')
+def meta():
+    return jsonify({
+        'revision': CURRENT_REVISION
+    })
 
 
 @app.route('/predict', methods=['POST'])
