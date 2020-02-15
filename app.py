@@ -14,7 +14,7 @@ def index():
     return jsonify({'data': "Hello, World!"})
 
 
-@app.route('/predict')
+@app.route('/predict', methods=['POST'])
 def predict():
     model = Net()
     img = read_img_from_base64(request.json['img'])
