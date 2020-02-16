@@ -2,8 +2,13 @@ from os import environ
 
 from flask import Flask, jsonify, request, make_response, abort
 
+from log_config import LOG_CONFIG
 from meta import CURRENT_REVISION
 from model import predict_image, Net, read_img_from_base64
+
+from logging.config import dictConfig
+
+dictConfig(LOG_CONFIG)
 
 app = Flask(__name__)
 
@@ -27,7 +32,12 @@ def predict():
     model = Net()
     img = read_img_from_base64(request.json['img'])
     pred = predict_image(model, img)
-    return jsonify({'prediction': pred})
+    result = {
+        'prediction': pred,
+        'revision': CURRENT_REVISION
+    }
+    app.logger.info(f'Predicted: {result}')
+    return jsonify(result)
 
 
 if __name__ == '__main__':

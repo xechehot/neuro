@@ -226,7 +226,6 @@ class DrawingDataset(Dataset):
         self.img_names = x
         resize_transform = Compose([ToPILImage(), Resize(cropped_size[::-1]), ToTensor()])
         self.x = [resize_transform(load_pic(xi)) for xi in x]
-        print(self.x[0].shape)
         self.y = y
         self.transform = transform
 
@@ -408,7 +407,6 @@ def predict_image(model, img):
             output = model(x)
         output = output.cpu()
         y_pred[i - 1] = output.numpy().flatten()
-    print(y_pred)
     return _y_pred_to_grade(y_pred)
 
 
